@@ -1,0 +1,4 @@
+- The /hot folder hosts results from each subreddit that have had the most upvotes recently
+- The /top folder hosts results from each reddit that have the most upvotes regardless of downvotes
+- Each folder has 3 csvs labeled 1, 2, and 3 which corresponds to the # of words in the keyword file (single word keywords, 2-word keywords, etc.)
+- The .csv files have the keyword and the number of times they have occurred in the search. I have only included keywords with more that 10 occurrences 
