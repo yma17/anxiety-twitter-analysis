@@ -158,14 +158,13 @@ def api_search(start_time, next_token, keyword_str=None, conv_id=None):
         return None, None, success, base_url, params
 
 
-def retrieve_initial_keywords():
+def retrieve_initial_keywords(filename, save_filename):
     # Read file with keywords
-    df_keywords = pd.read_csv("anxiety_keywords - 24.csv")
+    df_keywords = pd.read_csv(filename)
     keywords = df_keywords["keyword"].to_list()
 
     res_dict = get_empty_tweets_dict()
     calls_per_keyword = 1
-    save_filename = "initial_keyword_tweets"
     start_time = "2021-03-13T00:00:00Z"
 
     for i, keyword in enumerate(keywords):
@@ -193,4 +192,4 @@ def retrieve_initial_keywords():
 
 
 if __name__ == '__main__':
-    retrieve_initial_keywords()
+    retrieve_initial_keywords("anxiety_keywords_2 - Sheet1.csv", "2_initial_keyword_tweets")
