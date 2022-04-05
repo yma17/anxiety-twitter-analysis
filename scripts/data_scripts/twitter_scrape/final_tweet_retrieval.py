@@ -1,7 +1,6 @@
 import requests
 import json
 import time
-import math
 import pandas as pd
 import os
 join = os.path.join
@@ -111,12 +110,15 @@ def get_query(keyword_str=None, conv_id=None, root_only=True, hashtag=False):
     if root_only:  # root tweets only (no RTs, replies, quotes)
         query_str += ' -is:retweet -is:reply -is:quote'
     if hashtag:
-        query_str += 'has:hashtag'
+        query_str += ' has:hashtags'
     else:
-        query_str += '-has:hashtag'
+        query_str += ' -has:hashtags'
 
-    #remove links, mentions, sponsored tweets & target users in the US
-    query_str += '-has:links -has:mentions -is:nullcast place_country:US)'
+    # #remove links, mentions, sponsored tweets & target users in the US
+    # query_str += ' -has:links -has:mentions -is:nullcast place_country:US)'
+
+    #remove links and sponsored tweets
+    query_str += ' -has:links -is:nullcast'
 
     return query_str
 
@@ -171,39 +173,58 @@ def retrieve_initial_keywords(filename, save_filename):
     df_keywords = pd.read_csv(filename)
     keywords = df_keywords["keyword"].to_list()
 
-    # creates a list with a single match keyword containing all the keywords we found
-    # (anxiety gotten worse OR anxiety meds OR bad anxiety OR anxiety really OR first panic attack OR anxiety gets)
-    keywords = ["(" + " OR ".join(keywords) + ")"]
+    # # creates a list with a single match keyword containing all the keywords we found
+    # # (anxiety gotten worse OR anxiety meds OR bad anxiety OR anxiety really OR first panic attack OR anxiety gets)
+    # keywords = ["(" + " OR ".join(keywords) + ")"]
 
     res_dict = get_empty_tweets_dict()
 
     # we want to call once with hashtag and another time with no hashtag
-    calls_per_keyword = 2 
-    start_time = "2021-03-13T00:00:00Z"
+    calls_per_keyword = 2
+
+    # Max number of tweets to retrieve per keyword and hashtag
+    tweets_per_keyword_hashtag = 5000
+    
+    start_time = "2006-03-21T00:00:00Z"  # the founding of Twitter
+
+    save_period = 10
 
     for i, keyword in enumerate(keywords):
         print("Retrieving keyword {}/{}: {}".format(i + 1, len(keywords), keyword))
-        res_dict = get_empty_tweets_dict()
         
         next_token = None
         j = 0
         while j < calls_per_keyword:
-            hashtag = True if j is 1 else False
-            obj_list, meta, success, url, params = api_search(
-                start_time, next_token, keyword_str=keyword, conv_id=None, hashtag=hashtag)
+            hashtag = True if j == 1 else False
+            print("    Retrieving hashtag =", hashtag)
+
+            res_dict = get_empty_tweets_dict()
+            num_pulled = 0
+            k = 0
+            idx = 0
+            while num_pulled < tweets_per_keyword_hashtag:
+                obj_list, meta, success, url, params = api_search(
+                    start_time, next_token, keyword_str=keyword, conv_id=None, hashtag=hashtag)
+                
+                if not success:
+                    print(url, "\n", params)
+                elif obj_list is not None:
+                    add_tweets(res_dict, obj_list)
+                    num_pulled += len(obj_list)
+                    k += 1
+
+                if meta is None or "next_token" not in meta.keys():
+                    break
+                next_token = meta["next_token"]
             
-            if not success:
-                print(url, "\n", params)
-            elif obj_list is not None:
-                add_tweets(res_dict, obj_list)
-
-            if meta is None or "next_token" not in meta.keys():
-                break
-            next_token = meta["next_token"]
+                # Save for every keyword and hashtag
+                if k % save_period == 0:
+                    save_tweets_to_file(res_dict, save_filename + "_" + keyword + "_hashtag_" + str(hashtag), idx)
+                    res_dict = get_empty_tweets_dict()
+                    idx += 1
+            
+            save_tweets_to_file(res_dict, save_filename + "_" + keyword + "_hashtag_" + str(hashtag), idx)
             j += 1
-
-        # Save for every keyword
-        save_tweets_to_file(res_dict, save_filename + "_hashtag_" + str(hashtag), keyword)
 
 
 if __name__ == '__main__':
